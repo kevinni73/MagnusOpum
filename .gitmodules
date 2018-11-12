@@ -1,0 +1,4 @@
+[submodule "Nez"]
+	path = Nez
+	url = https://github.com/kevinni73/Nez.git
+	branch = master

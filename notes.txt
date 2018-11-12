@@ -1,0 +1,8 @@
+Create MonoGame Cross Platform Desktop Project
+Add the Nez.Portable/Nez.csproj project to your solution and add a reference to it in your main project
+In Nez project fix reference to MonoGame.Framework
+Add the Nez.PipelineImporter/Nez.PipelineImporter.csproj project to your solution
+Open the Nez.PipelineImporter references dialog and add a reference to the Nez project
+Fix Nez.PipelineImporter - https://github.com/prime31/Nez/issues/40
+Build the Nez.PipelineImporter project to generate the DLLs
+Open the Pipeline Tool by double-clicking your Content.mgcb file, select Content and under Settings add PipelineImporter.dll, Ionic.ZLib.dll, Newtonsoft.Json.dll and Nez.dll to the References collection.
