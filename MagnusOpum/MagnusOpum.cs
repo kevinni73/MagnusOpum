@@ -9,9 +9,9 @@ namespace MagnusOpum {
     /// <summary>
     /// This is the main type for your game.
     /// </summary>
-    public class Game1 : Core {
+    public class MagnusOpum : Core {
 
-        public Game1() : base(640 * 2, 360 * 2) {
+        public MagnusOpum() : base(640 * 2, 360 * 2) {
             IsMouseVisible = true;
             Window.AllowUserResizing = true;
             //IsFixedTimeStep = true;

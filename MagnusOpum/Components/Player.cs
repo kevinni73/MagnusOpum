@@ -21,8 +21,6 @@ namespace MagnusOpum.Components {
         public float terminalVelocity = 500;
         public float fastFallVelocity = 600;
 
-        public Vector2 currentRoomSize;
-
         enum Animations {
             None,
             Idle,
@@ -49,7 +47,6 @@ namespace MagnusOpum.Components {
         VirtualIntegerAxis _yAxisInput;
 
         bool jumpKeyHeld = false;
-        bool shiftOnce = false;
 
         public override void onAddedToEntity() {
             Texture2D texture = entity.scene.content.Load<Texture2D>("Character Animations/Adventurer-1.5/adventurer-v1.5-Sheet");
@@ -332,11 +329,6 @@ namespace MagnusOpum.Components {
 
             if (!_animation.isAnimationPlaying(animation) && animation != Animations.None) {
                 _animation.play(animation);
-            }
-
-            if (!shiftOnce && transform.position.X - (_boxCollider.width / 2f) >= currentRoomSize.X) {
-                _followCam.shiftMap(new Vector2(currentRoomSize.X, 0));
-                shiftOnce = true;
             }
         }
 
