@@ -21,24 +21,14 @@ namespace MagnusOpum.Components {
         public float terminalVelocity = 500;
         public float fastFallVelocity = 600;
 
-        enum Animations {
-            None,
-            Idle,
-            Run,
-            Attack,
-            Jump,
-            Falling,
-            Roll,
-            Crouch,
-        }
-
-        Sprite<Animations> _animation;
+        SpriteAnimator _animator;
         TiledMapMover _tileMover;
         Mover _mover;
         BoxCollider _boxCollider;
         Vector2 _velocity;
         TiledMapMover.CollisionState _collisionState = new TiledMapMover.CollisionState();
         FollowCamera _followCam;
+        Dictionary<string, SpriteAnimator.LoopMode> _animatorLoop = new Dictionary<string, SpriteAnimator.LoopMode>();
 
         VirtualButton _jumpInput;
         VirtualButton _attackInput;
@@ -48,182 +38,182 @@ namespace MagnusOpum.Components {
 
         bool jumpKeyHeld = false;
 
-        public override void onAddedToEntity() {
-            Texture2D texture = entity.scene.content.Load<Texture2D>("Character Animations/Adventurer-1.5/adventurer-v1.5-Sheet");
-            List<Subtexture> subtextures = Subtexture.subtexturesFromAtlas(texture, 50, 37);
+        public override void OnAddedToEntity() {
+            Texture2D texture = Entity.Scene.Content.Load<Texture2D>("Character Animations/Adventurer-1.5/adventurer-v1.5-Sheet");
+            var sprites = Sprite.SpritesFromAtlas(texture, 50, 37);
 
-            _tileMover = entity.getComponent<TiledMapMover>();
-            _mover = entity.getComponent<Mover>();
-            _boxCollider = entity.getComponent<BoxCollider>();
-            _animation = entity.addComponent(new Sprite<Animations>(subtextures[0]));
-            _followCam = entity.getComponent<FollowCamera>();
+            _tileMover = Entity.GetComponent<TiledMapMover>();
+            _mover = Entity.GetComponent<Mover>();
+            _boxCollider = Entity.GetComponent<BoxCollider>();
+            _animator = Entity.AddComponent(new SpriteAnimator(sprites[0]));
+            _followCam = Entity.GetComponent<FollowCamera>();
 
-            _animation.addAnimation(Animations.Idle, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[38],
-                subtextures[39],
-                subtextures[40],
-                subtextures[41],
-            }).setFps(6));
+            _animator.AddAnimation("idle", 6, new[]{
+                sprites[38],
+                sprites[39],
+                sprites[40],
+                sprites[41],
+            });
 
-            _animation.addAnimation(Animations.Run, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[8],
-                subtextures[9],
-                subtextures[10],
-                subtextures[11],
-                subtextures[12],
-                subtextures[13],
-            }));
+            _animator.AddAnimation("run", new[]{
+                sprites[8],
+                sprites[9],
+                sprites[10],
+                sprites[11],
+                sprites[12],
+                sprites[13],
+            });
 
-            _animation.addAnimation(Animations.Jump, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[14],
-                subtextures[15],
-                subtextures[16],
-                subtextures[17],
-            }));
+            _animator.AddAnimation("jump", new[]{
+                sprites[14],
+                sprites[15],
+                sprites[16],
+                sprites[17],
+            });
+            _animatorLoop["jump"] = SpriteAnimator.LoopMode.ClampForever;
 
-            _animation.getAnimation(Animations.Jump).setLoop(false);
-            _animation.getAnimation(Animations.Jump).completionBehavior = AnimationCompletionBehavior.RemainOnFinalFrame;
+            _animator.AddAnimation("falling", new[]{
+                sprites[22],
+                sprites[23],
+            });
 
-            _animation.addAnimation(Animations.Falling, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[22],
-                subtextures[23],
-            }));
+            _animator.AddAnimation("attack", 15, new [] {
+                //sprites[47], lower startup
+                sprites[48],
+                sprites[49],
+                sprites[50],
+                sprites[51],
+                sprites[52],
+            });
+            _animatorLoop["attack"] = SpriteAnimator.LoopMode.Once;
 
-            _animation.addAnimation(Animations.Attack, new SpriteAnimation(new List<Subtexture>() {
-                //subtextures[47], lower startup
-                subtextures[48],
-                subtextures[49],
-                subtextures[50],
-                subtextures[51],
-                subtextures[52],
-            }).setLoop(false).setFps(15));
+            _animator.AddAnimation("roll", 15, new [] {
+                sprites[18],
+                sprites[19],
+                sprites[20],
+                sprites[21],
+                sprites[18],
+                sprites[19],
+            });
+            _animatorLoop["roll"] = SpriteAnimator.LoopMode.Once;
 
-            _animation.addAnimation(Animations.Roll, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[18],
-                subtextures[19],
-                subtextures[20],
-                subtextures[21],
-                subtextures[18],
-                subtextures[19],
-            }).setLoop(false).setFps(15));
+            _animator.AddAnimation("crouch", new [] {
+                sprites[4],
+                sprites[5],
+                sprites[6],
+                sprites[7],
+            });
 
-            _animation.addAnimation(Animations.Crouch, new SpriteAnimation(new List<Subtexture>() {
-                subtextures[4],
-                subtextures[5],
-                subtextures[6],
-                subtextures[7],
-            }));
-
-            _animation.onAnimationCompletedEvent += onFinishAnimation;
+            _animator.OnAnimationCompletedEvent += onFinishAnimation;
 
             setupInput();
         }
 
-        void onFinishAnimation(Animations animation) {
-            if (animation == Animations.Attack) {
-                _animation.currentAnimation = Animations.Idle;
+        void onFinishAnimation(string animation) {
+            if (animation == "attack") {
+                _animator.Play("idle");
             }
-            else if (animation == Animations.Roll) {
-                _boxCollider.setHeight(32);
+            else if (animation == "roll") {
+                _boxCollider.SetHeight(32);
                 var _ = new Vector2();
-                _tileMover.testCollisions(ref _, _boxCollider.bounds, _collisionState);
-                if (_collisionState.above) {
-                    _boxCollider.setHeight(16);
-                    _animation.currentAnimation = Animations.Crouch;
+                _tileMover.TestCollisions(ref _, _boxCollider.Bounds, _collisionState);
+                if (_collisionState.Above) {
+                    _boxCollider.SetHeight(16);
+                    _animator.Play("crouch");
                 }
             }
         }
 
-        Animations transitionAnimation(Animations previous, Animations next) {
+        string transitionAnimation(string previous, string next) {
             if (previous == next) {
                 return next;
             }
-            if (previous == Animations.Crouch) {
-                _boxCollider.setLocalOffset(new Vector2(_boxCollider.localOffset.X, 0));
+            if (previous == "crouch") {
+                _boxCollider.SetLocalOffset(new Vector2(_boxCollider.LocalOffset.X, 0));
 
-                if (next != Animations.Roll) {
-                    _boxCollider.setHeight(32);
+                if (next != "roll") {
+                    _boxCollider.SetHeight(32);
                     var _ = new Vector2();
-                    _tileMover.testCollisions(ref _, _boxCollider.bounds, _collisionState);
-                    if (_collisionState.above) {
-                        _boxCollider.setHeight(16);
-                        _boxCollider.setLocalOffset(new Vector2(_boxCollider.localOffset.X, 8));
-                        return Animations.Crouch;
+                    _tileMover.TestCollisions(ref _, _boxCollider.Bounds, _collisionState);
+                    if (_collisionState.Above) {
+                        _boxCollider.SetHeight(16);
+                        _boxCollider.SetLocalOffset(new Vector2(_boxCollider.LocalOffset.X, 8));
+                        return "crouch";
                     }
                 }
             }
-            else if (previous == Animations.Roll) {
-                _boxCollider.transform.position = new Vector2(_boxCollider.transform.position.X, _boxCollider.transform.position.Y - 8);
-                _boxCollider.setHeight(32);
+            else if (previous == "roll") {
+                _boxCollider.Transform.Position = new Vector2(_boxCollider.Transform.Position.X, _boxCollider.Transform.Position.Y - 8);
+                _boxCollider.SetHeight(32);
                 var _ = new Vector2();
-                _tileMover.testCollisions(ref _, _boxCollider.bounds, _collisionState);
-                if (_collisionState.above) {
-                    _boxCollider.setHeight(16);
-                    _boxCollider.setLocalOffset(new Vector2(_boxCollider.localOffset.X, 8));
-                    return Animations.Crouch;
+                _tileMover.TestCollisions(ref _, _boxCollider.Bounds, _collisionState);
+                if (_collisionState.Above) {
+                    _boxCollider.SetHeight(16);
+                    _boxCollider.SetLocalOffset(new Vector2(_boxCollider.LocalOffset.X, 8));
+                    return "crouch";
                 }
             }
 
-            if (next == Animations.Crouch) {
-                _boxCollider.setHeight(16);
-                _boxCollider.setLocalOffset(new Vector2(_boxCollider.localOffset.X, 8));
+            if (next == "crouch") {
+                _boxCollider.SetHeight(16);
+                _boxCollider.SetLocalOffset(new Vector2(_boxCollider.LocalOffset.X, 8));
             }
-            else if (next == Animations.Roll) {
-                _boxCollider.transform.position = new Vector2(_boxCollider.transform.position.X, _boxCollider.transform.position.Y + 8);
-                _boxCollider.setHeight(16);
-                _boxCollider.setLocalOffset(new Vector2(_boxCollider.localOffset.X, 0));
+            else if (next == "roll") {
+                _boxCollider.Transform.Position = new Vector2(_boxCollider.Transform.Position.X, _boxCollider.Transform.Position.Y + 8);
+                _boxCollider.SetHeight(16);
+                _boxCollider.SetLocalOffset(new Vector2(_boxCollider.LocalOffset.X, 0));
             }
 
             return next;
         }
 
-        public override void onRemovedFromEntity() {
-            base.onRemovedFromEntity();
+        public override void OnRemovedFromEntity() {
+            base.OnRemovedFromEntity();
 
             // deregister virtual input
-            _xAxisInput.deregister();
-            _yAxisInput.deregister();
-            _jumpInput.deregister();
-            _attackInput.deregister();
-            _rollInput.deregister();
+            _xAxisInput.Deregister();
+            _yAxisInput.Deregister();
+            _jumpInput.Deregister();
+            _attackInput.Deregister();
+            _rollInput.Deregister();
         }
 
         void setupInput() {
             // setup input for jumping. we will allow z on the keyboard or a on the gamepad
             _jumpInput = new VirtualButton();
-            _jumpInput.nodes.Add(new Nez.VirtualButton.KeyboardKey(Keys.Space));
-            _jumpInput.nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.A));
+            _jumpInput.Nodes.Add(new Nez.VirtualButton.KeyboardKey(Keys.Space));
+            _jumpInput.Nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.A));
 
             _attackInput = new VirtualButton();
-            _attackInput.nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.X));
+            _attackInput.Nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.X));
 
             _rollInput = new VirtualButton();
-            _rollInput.nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.B));
+            _rollInput.Nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.B));
 
             // horizontal input from dpad, left stick or keyboard left/right
             _xAxisInput = new VirtualIntegerAxis();
-            _xAxisInput.nodes.Add(new Nez.VirtualAxis.GamePadDpadLeftRight());
-            _xAxisInput.nodes.Add(new Nez.VirtualAxis.GamePadLeftStickX());
-            _xAxisInput.nodes.Add(new Nez.VirtualAxis.KeyboardKeys(VirtualInput.OverlapBehavior.TakeNewer, Keys.A, Keys.D));
+            _xAxisInput.Nodes.Add(new Nez.VirtualAxis.GamePadDpadLeftRight());
+            _xAxisInput.Nodes.Add(new Nez.VirtualAxis.GamePadLeftStickX());
+            _xAxisInput.Nodes.Add(new Nez.VirtualAxis.KeyboardKeys(VirtualInput.OverlapBehavior.TakeNewer, Keys.A, Keys.D));
 
             _yAxisInput = new VirtualIntegerAxis();
-            _yAxisInput.nodes.Add(new Nez.VirtualAxis.GamePadDpadUpDown());
-            _yAxisInput.nodes.Add(new Nez.VirtualAxis.GamePadLeftStickY());
-            _yAxisInput.nodes.Add(new Nez.VirtualAxis.KeyboardKeys(VirtualInput.OverlapBehavior.TakeNewer, Keys.W, Keys.S));
+            _yAxisInput.Nodes.Add(new Nez.VirtualAxis.GamePadDpadUpDown());
+            _yAxisInput.Nodes.Add(new Nez.VirtualAxis.GamePadLeftStickY());
+            _yAxisInput.Nodes.Add(new Nez.VirtualAxis.KeyboardKeys(VirtualInput.OverlapBehavior.TakeNewer, Keys.W, Keys.S));
         }
 
 
-        void IUpdatable.update() {
+        void IUpdatable.Update() {
             // handle movement and animations
-            Vector2 moveDir = new Vector2(_xAxisInput.value, _yAxisInput.value);
-            Animations animation = _animation.currentAnimation;
+            Vector2 moveDir = new Vector2(_xAxisInput.Value, _yAxisInput.Value);
+            string animation = _animator.CurrentAnimationName;
 
-            if (_animation.currentAnimation == Animations.Attack) {
+            if (_animator.CurrentAnimationName == "attack") {
                 return;
             }
 
-            if (_animation.currentAnimation == Animations.Roll && _animation.currentFrame != _animation.getAnimation(Animations.Roll).frames.Count() - 1) {
-                if (_animation.flipX) {
+            if (_animator.CurrentAnimationName == "roll" && _animator.CurrentFrame != _animator.CurrentAnimation.Sprites.Count() - 1) {
+                if (_animator.FlipX) {
                     _velocity.X = -rollSpeed;
                 }
                 else {
@@ -231,114 +221,119 @@ namespace MagnusOpum.Components {
                 }
             }
             else {
-                if (_rollInput.isPressed && _collisionState.below) {
-                    if (_animation.flipX) {
+                if (_rollInput.IsPressed && _collisionState.Below) {
+                    if (_animator.FlipX) {
                         _velocity.X = -moveSpeed;
                     }
                     else {
                         _velocity.X = moveSpeed;
                     }
 
-                    animation = Animations.Roll;
+                    animation = "roll";
                 }
-                else if (_attackInput.isPressed && _collisionState.below) {
-                    animation = Animations.Attack;
+                else if (_attackInput.IsPressed && _collisionState.Below) {
+                    animation = "attack";
                 }
                 else {
                     if (moveDir.Y > 0) {
-                        if (_collisionState.below) {
-                            animation = Animations.Crouch;
+                        if (_collisionState.Below) {
+                            animation = "crouch";
                             if (moveDir.X < 0) {
-                                _animation.flipX = true;
+                                _animator.FlipX = true;
                             }
                             else {
-                                _animation.flipX = false;
+                                _animator.FlipX = false;
                             }
                         }
-                        else if (_animation.currentAnimation == Animations.Falling) {
+                        else if (_animator.CurrentAnimationName == "falling") {
                             _velocity.Y = fastFallVelocity;
                         }
                     }
                     else {
                         if (moveDir.X < 0) {
-                            if (_collisionState.below) {
-                                animation = Animations.Run;
+                            if (_collisionState.Below) {
+                                animation = "run";
                             }
-                            _animation.flipX = true;
+                            _animator.FlipX = true;
                             _velocity.X = -moveSpeed;
                         }
                         else if (moveDir.X > 0) {
-                            if (_collisionState.below) {
-                                animation = Animations.Run;
+                            if (_collisionState.Below) {
+                                animation = "run";
                             }
-                            _animation.flipX = false;
+                            _animator.FlipX = false;
                             _velocity.X = moveSpeed;
                         }
                         else {
                             _velocity.X = 0;
-                            if (_collisionState.below) {
-                                animation = Animations.Idle;
+                            if (_collisionState.Below) {
+                                animation = "idle";
                             }
                         }
                     }
 
-                    if (_collisionState.below && _jumpInput.isPressed) {
-                        animation = Animations.Jump;
+                    if (_collisionState.Below && _jumpInput.IsPressed) {
+                        animation = "jump";
                         jumpKeyHeld = true;
-                        _velocity.Y = -Mathf.sqrt(2f * jumpHeight * gravity);
+                        _velocity.Y = -Mathf.Sqrt(2f * jumpHeight * gravity);
                     }
-                    else if (_jumpInput.isReleased) {
+                    else if (_jumpInput.IsReleased) {
                         jumpKeyHeld = false;
                     }
 
-                    if (_collisionState.above) {
+                    if (_collisionState.Above) {
                         _velocity.Y = 0;
                     }
 
-                    if (!_collisionState.below & _velocity.Y > 0) {
-                        animation = Animations.Falling;
+                    if (!_collisionState.Below & _velocity.Y > 0) {
+                        animation = "falling";
                     }
                 }
             }
 
-            if (_animation.currentAnimation == Animations.Jump && !jumpKeyHeld) {
+            if (_animator.CurrentAnimationName == "jump" && !jumpKeyHeld) {
                 _velocity.Y /= 2;
             }
 
             // apply gravity
             if (_velocity.Y < terminalVelocity) {
-                _velocity.Y += gravity * Time.deltaTime;
+                _velocity.Y += gravity * Time.DeltaTime;
                 if (_velocity.Y > terminalVelocity) {
                     _velocity.Y = terminalVelocity;
                 }
             }
 
-            animation = transitionAnimation(_animation.currentAnimation, animation);
-            if (animation != Animations.Crouch) {
+            animation = transitionAnimation(_animator.CurrentAnimationName, animation);
+            if (animation != "crouch") {
                 // move
-                Vector2 movement = _velocity * Time.deltaTime;
+                Vector2 movement = _velocity * Time.DeltaTime;
                 CollisionResult collisionResult;
-                _tileMover.testCollisions(ref movement, _boxCollider.bounds, _collisionState);
-                _mover.move(movement, out collisionResult);
+                _tileMover.TestCollisions(ref movement, _boxCollider.Bounds, _collisionState);
+                _mover.Move(movement, out collisionResult);
             }
 
             // reset gravity acceleration
-            if (_collisionState.below) {
+            if (_collisionState.Below) {
                 _velocity.Y = 0;
             }
 
-            if (!_animation.isAnimationPlaying(animation) && animation != Animations.None) {
-                _animation.play(animation);
+            if (animation != null && !_animator.IsAnimationActive(animation)) {
+                if (_animatorLoop.ContainsKey(animation)) {
+                    _animator.Play(animation, _animatorLoop[animation]);
+                }
+                else {
+                    _animator.Play(animation);
+                }
             }
         }
 
         #region ITriggerListener implementation
-        public void onTriggerEnter(Collider other, Collider local) {
-            Debug.log("triggerEnter: {0}", other.entity.name);
+        public void OnTriggerEnter(Collider other, Collider local) {
+            Debug.Log("triggerEnter: {0}", other.Entity.Name);
         }
 
-        public void onTriggerExit(Collider other, Collider local) {
-            Debug.log("triggerExit: {0}", other.entity.name);
+        public void OnTriggerExit(Collider other, Collider local) {
+            Debug.Log("triggerExit: {0}", other.Entity.Name);
         }
         #endregion
     }

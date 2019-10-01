@@ -27,8 +27,8 @@ namespace MagnusOpum {
         protected override void Initialize() {
             base.Initialize();
 
-            Scene.setDefaultDesignResolution(640, 368, Scene.SceneResolutionPolicy.ExactFit);
-            scene = new GameScene();
+            Scene.SetDefaultDesignResolution(640, 368, Scene.SceneResolutionPolicy.ExactFit);
+            Scene = new GameScene();
         }
     }
 }

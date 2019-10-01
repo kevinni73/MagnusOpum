@@ -29,16 +29,6 @@
 /processorParam:TextureFormat=Color
 /build:Character Animations/Adventurer-1.5/adventurer-v1.5-Sheet.png
 
-#begin map.tmx
-/importer:TiledMapImporter
-/processor:TiledMapProcessor
-/build:map.tmx
-
-#begin map2.tmx
-/importer:TiledMapImporter
-/processor:TiledMapProcessor
-/build:map2.tmx
-
 #begin tile.png
 /importer:TextureImporter
 /processor:TextureProcessor
