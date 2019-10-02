@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using MagnusOpum.Scenes;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Nez;
@@ -19,24 +20,31 @@ namespace MagnusOpum.Components {
 
         public float terminalVelocity = 500;
 
+        public static HashSet<Entity> players = new HashSet<Entity>();
+
         SpriteAnimator _animator;
         TiledMapMover _tileMover;
+        Mover _mover;
         BoxCollider _boxCollider;
         Vector2 _velocity;
         TiledMapMover.CollisionState _collisionState = new TiledMapMover.CollisionState();
         Dictionary<string, SpriteAnimator.LoopMode> _animatorLoop = new Dictionary<string, SpriteAnimator.LoopMode>();
 
         VirtualButton _jumpInput;
+        VirtualButton _duplicateInput;
         VirtualIntegerAxis _xAxisInput;
         VirtualIntegerAxis _yAxisInput;
 
         bool jumpKeyHeld = false;
 
         public override void OnAddedToEntity() {
+            players.Add(Entity);
+
             Texture2D texture = Entity.Scene.Content.Load<Texture2D>("Character Animations/Adventurer-1.5/adventurer-v1.5-Sheet");
             var sprites = Sprite.SpritesFromAtlas(texture, 50, 37);
 
             _tileMover = Entity.GetComponent<TiledMapMover>();
+            _mover = Entity.GetComponent<Mover>();
             _boxCollider = Entity.GetComponent<BoxCollider>();
             _animator = Entity.AddComponent(new SpriteAnimator(sprites[0]));
 
@@ -97,18 +105,22 @@ namespace MagnusOpum.Components {
 
         public override void OnRemovedFromEntity() {
             base.OnRemovedFromEntity();
-
-            // deregister virtual input
+            players.Remove(Entity);
+            
             _xAxisInput.Deregister();
             _yAxisInput.Deregister();
             _jumpInput.Deregister();
+            _duplicateInput.Deregister();
         }
 
         void setupInput() {
-            // setup input for jumping. we will allow z on the keyboard or a on the gamepad
             _jumpInput = new VirtualButton();
             _jumpInput.Nodes.Add(new Nez.VirtualButton.KeyboardKey(Keys.Space));
             _jumpInput.Nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.A));
+
+            _duplicateInput = new VirtualButton();
+            _duplicateInput.Nodes.Add(new Nez.VirtualButton.KeyboardKey(Keys.Z));
+            _duplicateInput.Nodes.Add(new Nez.VirtualButton.GamePadButton(0, Buttons.X));
 
             // horizontal input from dpad, left stick or keyboard left/right
             _xAxisInput = new VirtualIntegerAxis();
@@ -121,7 +133,6 @@ namespace MagnusOpum.Components {
             _yAxisInput.Nodes.Add(new Nez.VirtualAxis.GamePadLeftStickY());
             _yAxisInput.Nodes.Add(new Nez.VirtualAxis.KeyboardKeys(VirtualInput.OverlapBehavior.TakeNewer, Keys.W, Keys.S));
         }
-
 
         void IUpdatable.Update() {
             // handle movement and animations
@@ -193,7 +204,10 @@ namespace MagnusOpum.Components {
             }
 
             animation = transitionAnimation(_animator.CurrentAnimationName, animation);
-            _tileMover.Move(_velocity * Time.DeltaTime, _boxCollider, _collisionState);
+
+            Vector2 movement = _velocity * Time.DeltaTime;
+            _tileMover.TestCollisions(ref movement, _boxCollider.Bounds, _collisionState);
+            _mover.Move(movement, out _);
 
             // reset gravity acceleration
             if (_collisionState.Below) {
@@ -207,6 +221,14 @@ namespace MagnusOpum.Components {
                 else {
                     _animator.Play(animation);
                 }
+            }
+
+            if (_duplicateInput.IsPressed && players.Count < 2) {
+                Vector2 spawnPos = Entity.Position;
+                spawnPos.X += (_animator.FlipX ? -1 : 1) * _boxCollider.Width * 2;
+
+                GameScene scene = Entity.Scene as GameScene;
+                scene.AddPlayer(spawnPos);
             }
         }
 
